@@ -30,6 +30,8 @@ f = os.popen( 'ifconfig |grep "cast"')
 a = f.read()
 a = re.search( 'cast[:\s](\d+\.\d+\.\d+\.\d+)', a)
 ip = a.group(1)
+# use axis camera for input
+useAxisCam = False
 
 
 i = 0
@@ -44,8 +46,10 @@ for a in sys.argv:
         framesToGrab = int( sys.argv[ i+1])
     elif( a == '--port'):
         port = sys.argv[ i+1]
-    elif a == '--ip':
+    elif( a == '--ip'):
         ip = sys.argv[ i+1]
+    elif( a == '--axis'):
+        useAxisCam = True
     i += 1
 
 if len( inFileName) > 0:
@@ -63,7 +67,10 @@ if( framesToGrab < 1):
 # import pyrealsense if not processing a file
 pyrs = None
 if( len( inFileName) == 0):
-    import pyrealsense as pyrs
+    try:
+        import pyrealsense as pyrs
+    except:
+        pyrs = None
 
 
 print 'Starting...'
@@ -77,6 +84,10 @@ if pyrs:
     pyrs.start( c_height=1080, c_width=1920, c_fps=30, d_height=480, d_width=640, d_fps=30)
     print "\nSleeping 2..."
     time.sleep(2)
+elif( useAxisCam == True):
+    print "Using Axis Camera..."
+    vc = cv2.VideoCapture()
+    print vc.open("http:axis-00408ca7a2f0.local/mjpg/video.mjpg") # 'http://192.168.1.26/mjpg/video.mjpg')
 else:
     # inFileName = "./pix/stronghold_green.png"
     # inFileName = "./r.jpg"
@@ -110,10 +121,11 @@ while( i < framesToGrab):
     try:
         i += frameCounterInc
         
-        if pyrs:
-            # read color image from RealSense camera
+        if pyrs:  # read color image from RealSense camera
             imgIn = pyrs.get_colour()
-    
+        elif( useAxisCam == True):  # read color image from Axis camera
+            retval, imgIn = vc.read()
+
         imgH, imgW = imgIn.shape[:2]
         
         # only process the middle 1/3 of image width, full height.
@@ -181,17 +193,17 @@ while( i < framesToGrab):
         elif( ctr2targetLR > closeToCenter):
             trackDir = "R"
 
-# report L_R, up_down, width, height to two decimal places via UDP
-#  target to left/bottom of center return negative positions
-outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], trackDir)
+        # report L_R, up_down, width, height, dir to two decimal places via UDP
+        #  target to left/bottom of center return negative positions
+        outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], trackDir)
     except:
         # if width and/or height is negative then there was no target detected;
         outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}".format( ctr2targetLR, ctr2targetUD, -1.0, r[1][1], 'C')
         time.sleep( 1.0 / 60.0)
         print sys.exc_info()[0]
 
-if printToConsole: print outString
-    
+    if printToConsole: print outString
+
     # write tracking instructions to socket
     s.sendto( outString, ( ip, port))
 
