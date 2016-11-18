@@ -72,6 +72,32 @@ if( len( inFileName) == 0):
     except:
         pyrs = None
 
+#
+# define the color thresholds for isolating the target
+#
+# OpenCV uses ranges: hue 0-180, sat 0-255, val 0-255
+# gimp uses ranges H = 0-360 degrees, S = 0-100% and V = 0-100%
+# in Java OpenCV define the thresholds as: Scalar(0,0,80), new Scalar(240, 255, 255)
+#
+
+# define range of blue color in HSV
+#lower = np.array([110,50,50])
+#upper = np.array([130,255,255])
+
+# define range of green color in HSV
+#  for WPI Screensteps Stronghold image online
+lower = np.array([60,50,50])
+upper = np.array([93,255,255])
+
+# WPI thresholds refined, using gimp and by plotting histograms (Stronghold image)
+lower = np.array([ 78, 200, 50])
+upper = np.array([ 95, 255, 255])
+
+# range of green color in HSV
+#  for Fowkes' old green LEDs and Axis camera
+lower = np.array([ 0, 0, 80])
+upper = np.array([ 240, 255, 255])
+
 
 print 'Starting...'
 
@@ -106,6 +132,8 @@ else:
 
 
 # number of pixels 'close enought' to on target
+#  when the target is within (+/-) this many pixels of center the UDP and printout
+#  will end in 'C' instead of 'L' or 'R'
 closeToCenter = 2
 
 
@@ -134,32 +162,8 @@ while( i < framesToGrab):
         
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
         
-        # OpenCV uses ranges: hue 0-180, sat 0-255, val 0-255
-        # gimp uses ranges H = 0-360 degrees, S = 0-100% and V = 0-100%
-        
-        # define range of blue color in HSV
-        #lower = np.array([110,50,50])
-        #upper = np.array([130,255,255])
-        
-        # define range of green color in HSV
-        #  for WPI Screensteps Stronghold image online
-        lower = np.array([60,50,50])
-        upper = np.array([93,255,255])
-        
-        # refined using gimp and by plotting histograms (Stronghold image)
-        lower = np.array([ 78, 200, 50])
-        upper = np.array([ 95, 255, 255])
-        
-        # define range of green color in HSV
-        #  for Fowkes' old green LEDs and Axis camera
-        #  in Java: Scalar(0,0,80), new Scalar(240, 255, 255)
-        lower = np.array([ 0, 0, 80])
-        upper = np.array([ 240, 255, 255])
-        
-        
         # Threshold the HSV image to get only green colors
         mask = cv2.inRange(hsv, lower, upper)
-        if showImages: cv2.imshow('mask',mask)
         
         # find contours in the mask image, which is black and white
         contours, hierarchy = cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -170,6 +174,7 @@ while( i < framesToGrab):
         
         if( showImages):
             cv2.imshow('image',img)
+            cv2.imshow('mask',mask)
             # get four corners of bounding box
             box = np.int0(cv2.cv.BoxPoints(r))
             # draw the bounding box around the U
@@ -208,5 +213,50 @@ while( i < framesToGrab):
     s.sendto( outString, ( ip, port))
 
 
-
 print "Done. Processing rate was: %d fps" % ( framesToGrab / (time.time() - startTime))
+
+#
+# process depth map for distance to can
+#
+def processDepth( ):
+    # get depth map
+    dImgIn = pyrs.get_depth()  # each 'pixel' is depth (distance) in mm, I think
+
+    # select region of interest of map, i.e. where the can should be
+    #  depth map is always 640 x 480; region is [y1:y2, x1:x2]
+    y1 = 220
+    y2 = 259
+    x1 = 300
+    x2 = 339
+    dImg = dImgIn[ y1:y2, x1:x2]
+
+    # sort the selected pixels in depth order
+    depthArray = np.sort( dImg)
+
+    # select only values > nearest can distance minus about 10%
+    # see http://stackoverflow.com/questions/13869173/numpy-find-elements-within-range
+    #  and < farthest can distance
+    #  nearest can is 10' - 3.5' = 6.5' ; 6.5' * 90% = 1783mm
+    #  farthest can is 20' (assuming RealSense camera is between center of shooting circle and edge)
+    #  20' * 1.1 = 6705mm
+    canArray = np.where( np.logical_and( depthArray>1783, depthArray<6705))
+
+    # average, or perhaps just take median?
+    canDist = np.average( canArray)
+
+    # show 'image'
+    if( showImages):
+        dImgIn = dImgIn >> 3
+        cv2.drawContours( dImgIn, [ x1,y1,x2,y2], -1, (0, 255, 0), 2)
+        cv2.imshow( 'raw depth with ROI', dImgIn)
+
+    outString = "Distance = {: 8d}".format( canDist)
+    # print to console
+    if( printToConsole):
+        print depthArray
+        print canArray
+        print outString
+
+# write to UDP
+    s.sendto( outString, ( ip, port)))
+
