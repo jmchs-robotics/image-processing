@@ -11,7 +11,8 @@ import os
 import re
 
 #
-# parse command line
+# set default parameter
+#  then parse command line for use parameters
 #
 inFileName = ''
 inDepthFileName = ''
@@ -30,10 +31,14 @@ port = 59330
 f = os.popen( 'ifconfig |grep "cast"')
 a = f.read()
 a = re.search( 'cast[:\s](\d+\.\d+\.\d+\.\d+)', a)
-ip = a.group(1)
+try:
+    ip = a.group(1)
+except:
+    ip = '127.0.0.1'
 # use axis camera for input
 useAxisCam = False
-
+# one less than the number of image frames (for L/R aiming) to one depth map (for distance)
+img2depthRatio = 10
 
 i = 0
 for a in sys.argv:
@@ -53,6 +58,8 @@ for a in sys.argv:
         ip = sys.argv[ i+1]
     elif( a == '--axis'):
         useAxisCam = True
+    elif( a == '--ratio'):
+        img2depthRatio = int( sys.argv[ i+1])
     i += 1
 
 if len( inFileName) > 0:
@@ -81,9 +88,10 @@ if( len( inFileName) == 0):
 # in Java OpenCV define the thresholds as: Scalar(0,0,80), new Scalar(240, 255, 255)
 #
 
+"""
 # define range of blue color in HSV
-#lower = np.array([110,50,50])
-#upper = np.array([130,255,255])
+lower = np.array([110,50,50])
+upper = np.array([130,255,255])
 
 # define range of green color in HSV
 #  for WPI Screensteps Stronghold image online
@@ -93,11 +101,71 @@ upper = np.array([93,255,255])
 # WPI thresholds refined, using gimp and by plotting histograms (Stronghold image)
 lower = np.array([ 78, 200, 50])
 upper = np.array([ 95, 255, 255])
+"""
 
 # range of green color in HSV
 #  for Fowkes' old green LEDs and Axis camera
 lower = np.array([ 0, 0, 80])
 upper = np.array([ 240, 255, 255])
+
+
+
+#
+# process depth map for distance to can
+#
+def processDepth( dImgIn ):
+    # get depth map
+    if( pyrs):
+        dImgIn = pyrs.get_depth()  # each 'pixel' is depth (distance) in mm, I think
+    
+    # select region of interest of map, i.e. where the can should be
+    #  depth map is always 640w x 480h; FOV is 59deg w x 46deg h
+    #  see Alex's email to Jon 10/24/16, search on 'isosceles'
+    #  height of field of view of RealSense at distance d is
+    #  h = 2 * d * sin( 23deg) / sin( 67deg)
+    #  can height in pixels is then chp = 25" * 480 * / h
+    #  can width in pixels cwp = 20" * 640 / ( 2 * d * sin( 29.5deg) / sin( 60.5deg))
+    # go with 29 pixel width ROI taken from the center;
+    #  and 29 pixel height centered 15 pixels above center of image.  Images have (0,0) at upper left corner.
+    # region of numpy array is chosen by [y1:y2, x1:x2].  To extract the region, need y1 < y2 and x1 < x2
+    y2 = 239
+    y1 = 210
+    x1 = 305
+    x2 = 334
+    dImg = dImgIn[ y1:y2, x1:x2]
+    
+    
+    # select only values > nearest can distance minus about 10%
+    # see http://stackoverflow.com/questions/13869173/numpy-find-elements-within-range
+    #  and < farthest can distance
+    #  nearest can is 10' - 3.5' = 6.5' ; 6.5' * 90% = 1783mm
+    #  farthest can is 20' (assuming RealSense camera is between center of shooting circle and edge)
+    #  20' * 1.1 = 6705mm
+    canArray = dImg[ np.where( np.logical_and( dImg>1783, dImg<6705))]
+    
+    # average, or perhaps just take median?
+    canDist = np.median( canArray)
+    
+    # show 'image'
+    if( showImages):
+        dImgIn = dImgIn / 8.0
+        cv2.rectangle( dImgIn, (x1,y1), (x2,y2), (0, 255, 0), 2)
+        cv2.imshow( 'raw depth with ROI', dImgIn)
+    
+    
+    outString = "Median distance = {: 8.1f}; Average distance = {: 8.1f}".format( canDist, np.average( canArray))
+    # print to console
+    if( printToConsole):
+        #print depthArray
+        print canArray
+        print outString
+    
+    # write to UDP
+    s.sendto( outString, ( ip, port))
+
+# end processDepth() process depth map function
+
+
 
 
 print 'Starting...'
@@ -120,12 +188,14 @@ else:
     
 if( len( inDepthFileName) > 0): # read the input depth map from a file
     print "Processing depth file %s" % ( inDepthFileName)
-    dImgIn = cv2.imread( inDepthFileName) << 3 # RealSense vals are 8 times those in the saved image
+    dImgIn = cv2.imread( inDepthFileName) * 8.0 # RealSense vals are 8 times those in the saved image
+else:
+    dImgIn = None
 
-print( "Writing UDP to %s:%s" % ( ip, port))
 # initialize UDP socet
 s = socket.socket( socket.AF_INET, socket.SOCK_DGRAM)
 s.setsockopt( socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+print( "Writing UDP to %s:%s" % ( ip, port))
 
 
 if frameCounterInc == 1:
@@ -151,8 +221,22 @@ trackDir = "C" # which direction to turn
 # main loop
 #
 i = 0
+img2depthCtr = 0
+img2depthRatio -= 1 # need to be one less, for how the logic works
 startTime = time.time()
 while( i < framesToGrab):
+    #
+    # process depth map every img2depthRatio counts of img2depthCtr
+    #
+    if( img2depthCtr == 0):
+        processDepth( dImgIn)
+    img2depthCtr += 1
+    if( img2depthCtr >= img2depthRatio):
+        img2depthCtr = 0
+
+    #
+    # process image
+    #
     try:
         i += frameCounterInc
         
@@ -220,63 +304,8 @@ while( i < framesToGrab):
 
 print "Done. Processing rate was: %d fps" % ( framesToGrab / (time.time() - startTime))
 
-#
-# process depth map for distance to can
-#
-def processDepth( dImgIn ):
-    # get depth map
-    if( pyrs):
-        dImgIn = pyrs.get_depth()  # each 'pixel' is depth (distance) in mm, I think
+if( showImages):
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-    # select region of interest of map, i.e. where the can should be
-    #  depth map is always 640w x 480h; FOV is 59deg w x 46deg h
-    #  see Alex's email to Jon 10/24/16, search on 'isosceles'
-    #  height of field of view of RealSense at distance d is
-    #  h = 2 * d * sin( 23deg) / sin( 67deg)
-    #  can height in pixels is then chp = 25" * 480 * / h
-    #  can width in pixels cwp = 20" * 640 / ( 2 * d * sin( 29.5deg) / sin( 60.5deg))
-    # go with 29 pixel width ROI taken from the center;
-    #  and 29 pixel height centered 15 pixels above center of image.  Images have (0,0) at upper left corner.
-    # region of numpy array is chosen by [y1:y2, x1:x2]
-    y1 = 239
-    y2 = 210
-    x1 = 305
-    x2 = 334
-    dImg = dImgIn[ y1:y2, x1:x2]
-
-    # select only values > nearest can distance minus about 10%
-    # see http://stackoverflow.com/questions/13869173/numpy-find-elements-within-range
-    #  and < farthest can distance
-    #  nearest can is 10' - 3.5' = 6.5' ; 6.5' * 90% = 1783mm
-    #  farthest can is 20' (assuming RealSense camera is between center of shooting circle and edge)
-    #  20' * 1.1 = 6705mm
-    canArray = np.where( np.logical_and( dImg>1783, dImg<6705))
-
-    # average, or perhaps just take median?
-    canDist = np.median( canArray)
-
-    # show 'image'
-    if( showImages):
-        dImgIn = dImgIn >> 3
-        cv2.rectangle( dImgIn, (x1,y1), (x2,y2), (0, 255, 0), 2)
-        cv2.imshow( 'raw depth with ROI', dImgIn)
-
-    outString = "Distance = {: 8f}".format( canDist)
-    # print to console
-    if( printToConsole):
-        #print depthArray
-        print canArray
-        print outString
-
-# write to UDP
-    s.sendto( outString, ( ip, port))
-
-
-
-processDepth( dImgIn)
-
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-quit()
 
