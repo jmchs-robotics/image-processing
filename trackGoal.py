@@ -28,7 +28,7 @@ frameCounterInc = 1
 # default port
 port = 59330
 # default ip - set to local broadcast address
-f = os.popen( 'ifconfig |grep "cast"')
+f = os.popen( '/sbin/ifconfig |grep "cast"')
 a = f.read()
 a = re.search( 'cast[:\s](\d+\.\d+\.\d+\.\d+)', a)
 try:
@@ -157,7 +157,7 @@ def processDepth( dImgIn ):
     # print to console
     if( printToConsole):
         #print depthArray
-        print canArray
+        #print canArray
         print outString
     
     # write to UDP
@@ -222,7 +222,6 @@ trackDir = "C" # which direction to turn
 #
 i = 0
 img2depthCtr = 0
-img2depthRatio -= 1 # need to be one less, for how the logic works
 startTime = time.time()
 while( i < framesToGrab):
     #
