@@ -215,7 +215,7 @@ while( i < framesToGrab):
 
             # select pixels between max and min distance (depth) to cans and then take the median
             canArray = dImg[ np.where( np.logical_and( dImg > closestCanDepth, dImg < farthestCanDepth))]
-            canDist = np.median( canArray)
+            canDist = np.average( canArray)
 
             # show 'image'
             if( showImages or writeSnapshotFiles):
@@ -224,7 +224,7 @@ while( i < framesToGrab):
             if( showImages):
                 cv2.imshow( 'raw depth with ROI', dImgIn)
 
-            outString = "Median distance = {: 8.1f}; Average distance = {: 8.1f}".format( canDist, np.average( canArray))
+            outString = "Depth-map-based distance = {: 8.1f}".format( canDist)
         except:
             outString = "Error in depth processing for can distance."
             
