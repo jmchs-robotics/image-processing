@@ -293,6 +293,14 @@ while( i < framesToGrab):
         ctr2targetUD = ( imgH / 2.0) - r[0][1]
         ctr2targetLR = r[0][0] - ( imgW / 2.0)
         
+        # TODO:
+        # keep recent 3 results, only report if good
+        ctr2targetLRmedian = np.median( ctr2targetLRhistL)
+        if( ctr2targetLR < ctr2targetLRmedian + 100 and ctr2targetLR > ctr2targetLRmedian - 100): # good result
+        ctr2targetUDhistL[ histLctr] = ctr2targetUD
+        histLctr += 1
+        if( histLctr >= 3): histLctr =0
+
         trackDir = "C"
         if( ctr2targetLR < - closeToCenter):
             trackDir = "L"
