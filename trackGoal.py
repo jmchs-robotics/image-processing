@@ -105,12 +105,20 @@ upper = np.array([93,255,255])
 # WPI thresholds refined, using gimp and by plotting histograms (Stronghold image)
 lower = np.array([ 78, 200, 50])
 upper = np.array([ 95, 255, 255])
-"""
 
 # range of green color in HSV
 #  for Fowkes' old green LEDs and Axis camera
 lower = np.array([ 0, 0, 80])
 upper = np.array([ 240, 255, 255])
+"""
+    
+# white, HSV
+lower = np.array([ 0, 0, 250])
+upper = np.array([ 5, 5, 256])
+
+# white and pink, BGR
+lower = np.array([ 250, 128, 250])
+upper = np.array([ 256, 256, 256])
 
 # select region of interest of map, i.e. where the can should be
 #  depth map is always 640w x 480h; FOV is 59deg w x 46deg h
@@ -248,8 +256,9 @@ while( i < framesToGrab):
         img = imgIn[ 0:imgH, int(imgW/3.0) : int(imgW*2.0/3.0)]
         imgH, imgW = img.shape[:2]
         
-        hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
-        
+        # hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+        # test to see if BGR threshold works, red filter on spotlight
+        hsv = img
         # Threshold the HSV image to get only green colors
         mask = cv2.inRange(hsv, lower, upper)
         
