@@ -116,7 +116,7 @@ upper = np.array([ 240, 255, 255])
 lower = np.array([ 0, 0, 250])
 upper = np.array([ 5, 5, 256])
 
-# white and pink, BGR
+# pink, BGR
 lower = np.array([ 230, 88, 230])
 upper = np.array([ 256, 156, 256])
 
@@ -290,8 +290,8 @@ while( i < framesToGrab):
 
         # return the distance from the center of the image to the
         #  center of the rectangle, and the dimensions of the rectangle
-        ctr2targetUD = ( imgH / 2.0) - r[0][0]
-        ctr2targetLR = r[0][1] - ( imgW / 2.0)
+        ctr2targetUD = ( imgH / 2.0) - r[0][1]
+        ctr2targetLR = r[0][0] - ( imgW / 2.0)
         
         trackDir = "C"
         if( ctr2targetLR < - closeToCenter):
