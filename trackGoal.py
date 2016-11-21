@@ -117,8 +117,8 @@ lower = np.array([ 0, 0, 250])
 upper = np.array([ 5, 5, 256])
 
 # white and pink, BGR
-lower = np.array([ 250, 128, 250])
-upper = np.array([ 256, 256, 256])
+lower = np.array([ 230, 88, 230])
+upper = np.array([ 256, 156, 256])
 
 # select region of interest of map, i.e. where the can should be
 #  depth map is always 640w x 480h; FOV is 59deg w x 46deg h
