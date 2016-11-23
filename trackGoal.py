@@ -118,7 +118,7 @@ upper = np.array([ 5, 5, 256])
 
 # pink, BGR
 lower = np.array([ 230, 88, 230])
-upper = np.array([ 256, 156, 256])
+upper = np.array([ 256, 256, 256])  # really 256, 156, 256
 
 # select region of interest of map, i.e. where the can should be
 #  depth map is always 640w x 480h; FOV is 59deg w x 46deg h
@@ -193,6 +193,9 @@ ctr2targetLR = 0 # pixels from center left/right
 r = [(0,0),(-1,-1)] # (( center), ( width, height)) of square around target
 trackDir = "C" # which direction to turn
 
+# keep last 3 tracking data so can not write out very bad data points
+ctr2targetLRhistL = [0, 0, 0]
+histLctr = 0
 
 #
 # main loop
@@ -292,28 +295,35 @@ while( i < framesToGrab):
         #  center of the rectangle, and the dimensions of the rectangle
         ctr2targetUD = ( imgH / 2.0) - r[0][1]
         ctr2targetLR = r[0][0] - ( imgW / 2.0)
-        
-        # TODO:
-        # keep recent 3 results, only report if good
-        ctr2targetLRmedian = np.median( ctr2targetLRhistL)
-        if( ctr2targetLR < ctr2targetLRmedian + 100 and ctr2targetLR > ctr2targetLRmedian - 100): # good result
-        ctr2targetUDhistL[ histLctr] = ctr2targetUD
+
+        # keep recent 3 results,
+        # only write out result if new result is within +/- 100 of median of last 3 results
+        m = np.median( ctr2targetLRhistL)
+        if( ctr2targetLR < m + 100 and ctr2targetLR > m - 100): # good result? Send it
+            trackDir = "C"
+            if( ctr2targetLR < - closeToCenter):
+                trackDir = "L"
+            elif( ctr2targetLR > closeToCenter):
+                trackDir = "R"
+
+    # TODO: compute distance from pixel height of tape
+    #  d = 610mm * 1080 / ( 2 * chp * sin( 21.5deg) / sin( 68.5deg))
+    # = 835682.3 / chp # in mm
+
+            # report L_R, up_down, width, height, dir to two decimal places via UDP
+            #  target to left/bottom of center return negative positions
+            outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], 835682.3 / r[1][1], trackDir)
+        else:
+            # if width and/or height is negative then there was no target detected
+            outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -1.0, 835682.3 / r[1][1], 'C')
+                
+        ctr2targetLRhistL[ histLctr] = ctr2targetLR
         histLctr += 1
-        if( histLctr >= 3): histLctr =0
+        if( histLctr >= 3): histLctr = 0
 
-        trackDir = "C"
-        if( ctr2targetLR < - closeToCenter):
-            trackDir = "L"
-        elif( ctr2targetLR > closeToCenter):
-            trackDir = "R"
-
-        # report L_R, up_down, width, height, dir to two decimal places via UDP
-        #  target to left/bottom of center return negative positions
-        outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], trackDir)
     except:
-        # if width and/or height is negative then there was no target detected;
-        outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}".format( ctr2targetLR, ctr2targetUD, -1.0, r[1][1], 'C')
-        time.sleep( 1.0 / 60.0)
+        # if width and/or height is negative then there was no target detected
+        outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -2.0, 835682.3 / r[1][1], 'C')
         print sys.exc_info()[0]
 
     if printToConsole: print outString
