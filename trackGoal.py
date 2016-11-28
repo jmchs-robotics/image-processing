@@ -117,7 +117,7 @@ lower = np.array([ 0, 0, 250])
 upper = np.array([ 5, 5, 256])
 
 # pink, BGR
-lower = np.array([ 230, 88, 230])
+lower = np.array([ 220, 75, 153])  # red was 220
 upper = np.array([ 256, 256, 256])  # really 256, 156, 256
 
 # select region of interest of map, i.e. where the can should be
@@ -267,10 +267,16 @@ while( i < framesToGrab):
         
         # find contours in the mask image, which is black and white
         contours, hierarchy = cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        for c in contours:
+            r = cv2.minAreaRect(c)
+            if( r != None):
+                if((  r[1][1] > 100 ) and ( r[1][0] * 1000 > r[1][1]) and ( r[1][0] * 10) < r[1][1] and (r[2] > -5) and ( r[2] < 5)):
+                    print r
+                    break
+
         # find largest contour, by area
         c = max(contours, key = cv2.contourArea)
         # find bounding rectangle, ( center (x,y), (width, height), angle of rotation )
-        r = cv2.minAreaRect(c)
 
 
         #
@@ -312,7 +318,7 @@ while( i < framesToGrab):
 
             # report L_R, up_down, width, height, dir to two decimal places via UDP
             #  target to left/bottom of center return negative positions
-            outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], 835682.3 / r[1][1], trackDir)
+            outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, inches, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], 835682.3 / r[1][1] / 25.4, trackDir)
         else:
             # if width and/or height is negative then there was no target detected
             outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -1.0, 835682.3 / r[1][1], 'C')
@@ -323,7 +329,11 @@ while( i < framesToGrab):
 
     except:
         # if width and/or height is negative then there was no target detected
-        outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -2.0, 835682.3 / r[1][1], 'C')
+        if( r[1][1] == 0):
+            calculatedDistance = -1
+        else:
+            calculatedDistance = 835682.3 / r[1][1]
+        outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -2.0, calculatedDistance, 'C')
         print sys.exc_info()[0]
 
     if printToConsole: print outString
