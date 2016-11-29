@@ -44,7 +44,7 @@ while cnt < 5:
         last = now
 
     c = pyrs.get_colour()
-    d = pyrs.get_depth() >> 3
+    d = cv2.cvtColor( pyrs.get_depth() >> 3, cv2.COLOR_BGR2GRAY)
     irmap = pyrs.get_ir()
 
     # print c.shape, d.shape, irmap.shape
