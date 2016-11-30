@@ -233,6 +233,13 @@ while( i < framesToGrab):
 #  Maybe go one better and pick correct size from each of the threshold ranges: 6.5-10; 11.5-15; 16.5-20
 # pass the identified box as ROI for color image processing
 
+    # blur the channel, extract edges from it
+    chan = cv2.medianBlur( dImgIn, 11)
+    edged = cv2.Canny( chan, 50, 200)
+    cv2.imwrite( "depthEdges.jpg", edged)
+    cv2.imshow( "Edges from depth map", edged)
+    cv2.waitKey(0)
+    quit(0)
 
 
     # threshold the depth map for 90% of 6.5' to 110% of 20'
