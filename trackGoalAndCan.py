@@ -219,6 +219,12 @@ while( i < framesToGrab):
     
 
 # TODO:
+# use http://www.pyimagesearch.com/2015/04/20/sorting-contours-using-python-and-opencv/ to
+#  find edges in depth map (canny()), save to edge map
+#  find contours, then straight rectangles around edge map edges
+# loop over rectangles
+#  calculate ave depth (discard outliers) in each rectangle
+#  
 # threshold the whole depth map for only the range where the can should be (6.5' to 20').
 #  Maybe go one better and threshold the image for each of the possible ranges: 6.5-10; 11.5-15; 16.5-20
 # find contours
@@ -227,27 +233,26 @@ while( i < framesToGrab):
 #  Maybe go one better and pick correct size from each of the threshold ranges: 6.5-10; 11.5-15; 16.5-20
 # pass the identified box as ROI for color image processing
 
+
+
     # threshold the depth map for 90% of 6.5' to 110% of 20'
-#dThresh = dImgIn[ np.where( np.logical_and( dImgIn > closestCanDepth, dImgIn < farthestCanDepth))]
-    dThresh = cv2.inRange( dImgIn, (closestCanDepth, closestCanDepth, closestCanDepth), (farthestCanDepth,farthestCanDepth,farthestCanDepth))
+    dThresh =  np.logical_and( dImgIn > closestCanDepth, dImgIn < farthestCanDepth)
+    dThresh = np.array( dThresh > 0, dtype = np.uint8)
 
-
-    cv2.imshow( 'raw depth', dImgIn)
-    cv2.imshow( 'thresh depth', dThresh)
-    cv2.waitKey(0)
 
     # find contours in the thresholded depth map
     dCont, hierarchy = cv2.findContours(  dThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    print len(dCont)
     # find largest contour, by area
     c = max( dCont, key = cv2.contourArea)
     # find bounding straight rectangle
-    x,y,w,h = cv2.boundingRect(cnt)
-    
+    x,y,w,h = cv2.boundingRect( c)
+
     # draw rectangle onto image and display
-    dImgIn = cv2.cvtColor( dImgIn / 8.0, cv2.COLOR_BGR2GRAY)
-    cv2.rectangle( dImgIn, ( x,y), ( x+w, y+h), (0, 0, 255), 2)
-    cv2.imshow( 'raw depth with can', dImgIn)
-    cv2.waitKey(0)
+
+    cv2.rectangle( dImgIn, ( x,y), ( x+w, y+h), (255), -1)
+    cv2.imwrite( 'dtmp.jpg', dImgIn)
+    quit(0)
 
     # select pixels in the center of the depth map, i.e. where the can should be
     dImg = dImgIn[ y1:y2, x1:x2]
