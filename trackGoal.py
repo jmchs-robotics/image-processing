@@ -41,6 +41,12 @@ useAxisCam = False
 img2depthRatio = 10
 # write output files r.jpg and d.jpg of last images, with target areas inscribed
 writeSnapshotFiles = False
+# default realsesne input image dimensions, in pixels
+realsenseWidth = 1920
+realsenseHeight = 1080
+realsenseDepthWidth = 640
+realsenseDepthHeight = 480
+realsenseFPS = 30
 
 i = 0
 for a in sys.argv:
@@ -64,12 +70,18 @@ for a in sys.argv:
         img2depthRatio = int( sys.argv[ i+1])
     elif( a == '--snapshots'):
         writeSnapshotFiles = True
+    elif( a == '--640'):
+        realsenseWidth = 640
+	realsenseHeight = 480
+        realsenseDepthWidth = 640
+        realsenseDepthHeight = 480 
+        realsenseFPS = 60
     i += 1
 
 if len( inFileName) > 0:
     print "Processing input file %s" % ( inFileName)
     framesToGrab = 1
-else:
+elif( useAxisCam == False):
     print "Using RealSense camera for input"
 
 if( framesToGrab < 1):
@@ -78,7 +90,7 @@ if( framesToGrab < 1):
 
 # import pyrealsense if not processing a file
 pyrs = None
-if( len( inFileName) == 0):
+if( len( inFileName) == 0 and useAxisCam == False):
     try:
         import pyrealsense as pyrs
     except:
@@ -110,7 +122,6 @@ upper = np.array([ 95, 255, 255])
 #  for Fowkes' old green LEDs and Axis camera
 lower = np.array([ 0, 0, 80])
 upper = np.array([ 240, 255, 255])
-"""
     
 # white, HSV
 lower = np.array([ 0, 0, 250])
@@ -119,6 +130,19 @@ upper = np.array([ 5, 5, 256])
 # pink, BGR
 lower = np.array([ 220, 75, 153])  # red was 220
 upper = np.array([ 256, 256, 256])  # really 256, 156, 256
+
+# pink, HSV
+lower = np.array([ 0, 60, 60])
+upper = np.array([ 20, 190, 190])
+
+# just find the can (dark green) high sat > 30%, low val < 30%
+lower = np.array([ 0, 60, 0])
+upper = np.array([ 256, 256, 60])
+"""
+
+# white / very bright
+lower = np.array([ 0, 0, 250])
+upper = np.array([ 256, 110, 256])
 
 # select region of interest of map, i.e. where the can should be
 #  depth map is always 640w x 480h; FOV is 59deg w x 46deg h
@@ -143,6 +167,7 @@ x2 = 334
 #  20' * 1.1 = 6705mm
 closestCanDepth = 1783
 farthestCanDepth = 6705
+outDistString = '-1'
 
 
 print 'Starting...'
@@ -153,13 +178,14 @@ print 'Starting...'
 if pyrs:
     print 'Setting up RealSense device...'
     # pyrs.start() # sets everything to 640x480 and 60 fps
-    pyrs.start( c_height=1080, c_width=1920, c_fps=30, d_height=480, d_width=640, d_fps=30)
+    pyrs.start( c_height=realsenseHeight, c_width=realsenseWidth, c_fps=realsenseFPS, 
+		d_height=realsenseDepthHeight, d_width=realsenseDepthWidth, d_fps=realsenseFPS)
     print "\nSleeping 2..."
     time.sleep(2)
 elif( useAxisCam == True):
     print "Using Axis Camera..."
     vc = cv2.VideoCapture()
-    print vc.open("http:axis-00408ca7a2f0.local/mjpg/video.mjpg") # 'http://192.168.1.26/mjpg/video.mjpg')
+    print vc.open( "http://10.59.33.48/mjpg/video.mjpg") # ("http:axis-00408c9dccca.local/mjpg/video.mjpg") # 'http://192.168.1.26/mjpg/video.mjpg')
 else:
     imgIn = cv2.imread( inFileName) # read the input image from a file
     
@@ -217,8 +243,10 @@ while( i < framesToGrab):
             dImg = dImgIn[ y1:y2, x1:x2]
 
             # select pixels between max and min distance (depth) to cans and then take the median
-            canArray = dImg[ np.where( np.logical_and( dImg > closestCanDepth, dImg < farthestCanDepth))]
+            # canArray = dImg[ np.where( np.logical_and( dImg > closestCanDepth, dImg < farthestCanDepth))]
+	    canArray = dImg
             canDist = np.average( canArray)
+	    canDist = canDist / 25.4 # mm to inches
 
             # show 'image'
             if( showImages or writeSnapshotFiles):
@@ -226,17 +254,25 @@ while( i < framesToGrab):
                 cv2.rectangle( dImgIn, (x1,y1), (x2,y2), (0, 0, 255), 2)
             if( showImages):
                 cv2.imshow( 'raw depth with ROI', dImgIn)
-
             outString = "Depth-map-based distance = {: 8.1f}".format( canDist)
-        except:
-            outString = "Error in depth processing for can distance."
+            outDistString = "{: 8.2f}".format( canDist)
+
+        except (KeyboardInterrupt, SystemExit): 
+		if( useAxisCam == True):
+			vc.release()
+		raise
+	except:
+	    outString = "Error in depth processing for can distance."
+            outDistString = '-1'
             
+        """
         # print to console
         if( printToConsole):
             print outString
 
         # write to UDP
-        s.sendto( outString, ( ip, port))
+        # s.sendto( outString, ( ip, port))
+        """
     
     img2depthCtr += 1
     if( img2depthCtr >= img2depthRatio):
@@ -245,7 +281,7 @@ while( i < framesToGrab):
     #
     # process image
     #
-    try:
+    if(1): # try:
         i += frameCounterInc
         
         if pyrs:  # read color image from RealSense camera
@@ -256,28 +292,33 @@ while( i < framesToGrab):
         imgH, imgW = imgIn.shape[:2]
         
         # only process the middle 1/3 of image width, full height.
-        img = imgIn[ 0:imgH, int(imgW/3.0) : int(imgW*2.0/3.0)]
+	#  for 1080p input.  Leave 640x480 alone.
+	widthMult = 1
+	if( imgW > 641):
+        	img = imgIn[ 0:imgH, int(imgW/3.0) : int(imgW*2.0/3.0)]
+	else:
+		img = imgIn
+		widthMult = 1.0/3.0
         imgH, imgW = img.shape[:2]
         
-        # hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
-        # test to see if BGR threshold works, red filter on spotlight
-        hsv = img
-        # Threshold the HSV image to get only green colors
-        mask = cv2.inRange(hsv, lower, upper)
+        hsv = cv2.cvtColor( img, cv2.COLOR_BGR2HSV)
+        # Threshold the HSV image to get only desired colors
+        mask = cv2.inRange( hsv, lower, upper)
         
         # find contours in the mask image, which is black and white
-        contours, hierarchy = cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-        for c in contours:
-            r = cv2.minAreaRect(c)
-            if( r != None):
-                if((  r[1][1] > 100 ) and ( r[1][0] * 1000 > r[1][1]) and ( r[1][0] * 10) < r[1][1] and (r[2] > -5) and ( r[2] < 5)):
-                    print r
-                    break
+        contours, hierarchy = cv2.findContours( mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # find largest contour, by area
-        c = max(contours, key = cv2.contourArea)
-        # find bounding rectangle, ( center (x,y), (width, height), angle of rotation )
+	try:
+          c = max( contours, key = cv2.contourArea)
+	except:
+	  continue
 
+
+	# find minimum area rectangle, perhaps on an angle
+        r = cv2.minAreaRect( c)
+	# find upright, bounding rectangle
+	#r = cv2.boundingRect( c)
 
         #
         # draw target areas and display
@@ -288,9 +329,10 @@ while( i < framesToGrab):
             
         if( showImages or writeSnapshotFiles):
             # get four corners of bounding box
-            box = np.int0(cv2.cv.BoxPoints(r))
+            # box = np.int0(cv2.cv.BoxPoints(r))
             # draw the bounding box around the target
-            cv2.drawContours(img, [box], -1, (0, 255, 0), 2)
+            # cv2.drawContours(img, [box], -1, (0, 255, 0), 2)
+            cv2.drawContours(img, r, -1, (0, 255, 0), 2)
             # draw a circle in the center of the target
             cv2.circle(img, (int(r[0][0]),int(r[0][1])), 5, (0,0,255))
         if( showImages):
@@ -304,43 +346,52 @@ while( i < framesToGrab):
 
         # keep recent 3 results,
         # only write out result if new result is within +/- 100 of median of last 3 results
-        m = np.median( ctr2targetLRhistL)
-        if( ctr2targetLR < m + 100 and ctr2targetLR > m - 100): # good result? Send it
-            trackDir = "C"
-            if( ctr2targetLR < - closeToCenter):
-                trackDir = "L"
-            elif( ctr2targetLR > closeToCenter):
+        #m = np.median( ctr2targetLRhistL)
+        #if( ctr2targetLR < m + 100 and ctr2targetLR > m - 100): # good result? Send it
+        trackDir = "C"
+        if( ctr2targetLR < - closeToCenter):
+        	trackDir = "L"
+        elif( ctr2targetLR > closeToCenter):
                 trackDir = "R"
-
-    # TODO: compute distance from pixel height of tape
-    #  d = 610mm * 1080 / ( 2 * chp * sin( 21.5deg) / sin( 68.5deg))
-    # = 835682.3 / chp # in mm
 
             # report L_R, up_down, width, height, dir to two decimal places via UDP
             #  target to left/bottom of center return negative positions
-            outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, inches, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], 835682.3 / r[1][1] / 25.4, trackDir)
-        else:
+        outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}, {:s}".format( ctr2targetLR * widthMult, ctr2targetUD, r[1][0], outDistString, trackDir)
+        # outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}".format( ctr2targetLR * widthMult, ctr2targetUD, r[1][0], r[1][1], trackDir)
+            # outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, inches, {:s}".format( ctr2targetLR, ctr2targetUD, r[1][0], r[1][1], 835682.3 / r[1][1] / 25.4, trackDir)
+        if(0):  # else:
             # if width and/or height is negative then there was no target detected
-            outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -1.0, 835682.3 / r[1][1], 'C')
+            if r[1][1] != 0:
+		outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}, {:s}".format( ctr2targetLR, ctr2targetUD, -1.0, 835682.3 / r[1][1], 'C')
+	    else:
+		outString = "-1, -1, -1, -1, C"
                 
         ctr2targetLRhistL[ histLctr] = ctr2targetLR
         histLctr += 1
         if( histLctr >= 3): histLctr = 0
 
-    except:
+    if(0): # except (KeyboardInterrupt, SystemExit): 
+	if( useAxisCam == True):
+	  vc.release()
+	raise
+    if(0): # except:
         # if width and/or height is negative then there was no target detected
-        if( r[1][1] == 0):
-            calculatedDistance = -1
-        else:
-            calculatedDistance = 835682.3 / r[1][1]
+        # if( r[1][1] == 0):
+        calculatedDistance = -1
+        # else:
+        #    calculatedDistance = 835682.3 / r[1][1]
         outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -2.0, calculatedDistance, 'C')
         print sys.exc_info()[0]
 
     if printToConsole: print outString
 
     # write tracking instructions to socket
+    if( outString == ''): outString = "-1, -1, -1, -1, C"
     s.sendto( outString, ( ip, port))
 
+
+if( useAxisCam == True):
+	vc.release()
 
 print "Done. Processing rate was: %d fps" % ( framesToGrab / (time.time() - startTime))
 if( writeSnapshotFiles):

@@ -31,9 +31,9 @@ first = time.time()
 smoothing = 0.9;
 fps_smooth = 30
 
-print "Capturing 10 sets of images..."
+print "Capturing 30 sets of images..."
 setSize = 3
-while cnt < 5:
+while cnt < 30:
 
     cnt += 1
     if (cnt % 10) == 0:
@@ -44,8 +44,10 @@ while cnt < 5:
         last = now
 
     c = pyrs.get_colour()
-    d = cv2.cvtColor( pyrs.get_depth() >> 3, cv2.COLOR_BGR2GRAY)
-    irmap = pyrs.get_ir()
+    d = pyrs.get_depth()
+    
+    d = d >> 3
+#    irmap = pyrs.get_ir()
 
     # print c.shape, d.shape, irmap.shape
     # d = cv2.applyColorMap(d.astype(np.uint8), cv2.COLORMAP_RAINBOW)
@@ -66,5 +68,5 @@ while cnt < 5:
 print "Saving last set of captured images..."
 cv2.imwrite( 'r.jpg', c)
 cv2.imwrite( 'd.jpg', d)
-cv2.imwrite( 'irmap.png', irmap)
+#cv2.imwrite( 'irmap.png', irmap)
 
