@@ -79,10 +79,10 @@ for a in sys.argv:
     i += 1
 
 if len( inFileName) > 0:
-    print "Processing input file %s" % ( inFileName)
+    print( "Processing input file %s" % ( inFileName) )
     framesToGrab = 1
 elif( useAxisCam == False):
-    print "Using RealSense camera for input"
+    print( "Using RealSense camera for input" )
 
 if( framesToGrab < 1):
     framesToGrab = 1
@@ -170,27 +170,27 @@ farthestCanDepth = 6705
 outDistString = '-1'
 
 
-print 'Starting...'
+print ('Starting...')
 
 #
 # start the RealSense camera or read the input file
 #
 if pyrs:
-    print 'Setting up RealSense device...'
+    print ('Setting up RealSense device...')
     # pyrs.start() # sets everything to 640x480 and 60 fps
     pyrs.start( c_height=realsenseHeight, c_width=realsenseWidth, c_fps=realsenseFPS, 
 		d_height=realsenseDepthHeight, d_width=realsenseDepthWidth, d_fps=realsenseFPS)
-    print "\nSleeping 2..."
+    print ("\nSleeping 2...")
     time.sleep(2)
 elif( useAxisCam == True):
-    print "Using Axis Camera..."
+    print ("Using Axis Camera...")
     vc = cv2.VideoCapture()
-    print vc.open( "http://10.59.33.48/mjpg/video.mjpg") # ("http:axis-00408c9dccca.local/mjpg/video.mjpg") # 'http://192.168.1.26/mjpg/video.mjpg')
+    print (vc.open( "http://10.59.33.48/mjpg/video.mjpg")) # ("http:axis-00408c9dccca.local/mjpg/video.mjpg") # 'http://192.168.1.26/mjpg/video.mjpg')
 else:
     imgIn = cv2.imread( inFileName) # read the input image from a file
     
 if( len( inDepthFileName) > 0): # read the input depth map from a file
-    print "Processing depth file %s" % ( inDepthFileName)
+    print ("Processing depth file %s" % ( inDepthFileName) )
     dImgIn = cv2.imread( inDepthFileName) * 8.0 # RealSense vals are 8 times those in the saved image
 else:
     dImgIn = None
@@ -202,9 +202,9 @@ print( "Writing UDP to %s:%s" % ( ip, port))
 
 
 if frameCounterInc == 1:
-    print "Processing %d frames..." % ( framesToGrab)
+    print ("Processing %d frames..." % ( framesToGrab))
 else:
-    print "Processing infinite loop..."
+    print ("Processing infinite loop...")
 
 
 # number of pixels 'close enought' to on target
@@ -350,9 +350,9 @@ while( i < framesToGrab):
         #if( ctr2targetLR < m + 100 and ctr2targetLR > m - 100): # good result? Send it
         trackDir = "C"
         if( ctr2targetLR < - closeToCenter):
-        	trackDir = "L"
+        	  trackDir = "L"
         elif( ctr2targetLR > closeToCenter):
-                trackDir = "R"
+            trackDir = "R"
 
             # report L_R, up_down, width, height, dir to two decimal places via UDP
             #  target to left/bottom of center return negative positions
@@ -381,9 +381,9 @@ while( i < framesToGrab):
         # else:
         #    calculatedDistance = 835682.3 / r[1][1]
         outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -2.0, calculatedDistance, 'C')
-        print sys.exc_info()[0]
+        print (sys.exc_info()[0])
 
-    if printToConsole: print outString
+    if printToConsole: print (outString)
 
     # write tracking instructions to socket
     if( outString == ''): outString = "-1, -1, -1, -1, C"
@@ -393,9 +393,9 @@ while( i < framesToGrab):
 if( useAxisCam == True):
 	vc.release()
 
-print "Done. Processing rate was: %d fps" % ( framesToGrab / (time.time() - startTime))
+print ("Done. Processing rate was: %d fps" % ( framesToGrab / (time.time() - startTime)))
 if( writeSnapshotFiles):
-    print "Saving last set of captured images..."
+    print ("Saving last set of captured images...")
     cv2.imwrite( 'colorWithTargets.jpg', img)
     cv2.imwrite( 'colorMasked.jpg', mask)
     cv2.imwrite( 'depthWithROI.jpg', dImgIn)

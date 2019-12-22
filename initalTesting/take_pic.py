@@ -19,9 +19,9 @@ def get_image():
 
 # Ramp the camera - these frames will be discarded and are only used to allow v4l2
 # to adjust light levels, if necessary
-for i in xrange(ramp_frames,0,-1):
+for i in range(ramp_frames,0,-1):
     if( i/10.0 == int(i/10)):
-        print i/10
+        print (i/10)
     temp = get_image()
 
 print("Taking image...")

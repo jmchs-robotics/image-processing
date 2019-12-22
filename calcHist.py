@@ -62,8 +62,8 @@ for i in range(3):
 # histrL.append( cv2.calcHist([img],[i], mask,[256],[0,256]))
     histrL.append( cv2.calcHist([imgHSV],[i], None,[256],[0,256]))
 
-print 'i, hue, sat, val'
+print ('i, hue, sat, val')
 for i in range(256):
-    print "%4d, %6d, %6d, %6d" % ( i, histrL[0][i], histrL[1][i], histrL[2][i])
+    print ("%4d, %6d, %6d, %6d" % ( i, histrL[0][i], histrL[1][i], histrL[2][i]))
 
 

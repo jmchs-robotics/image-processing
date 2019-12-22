@@ -9,17 +9,17 @@
 import time
 # import matplotlib.pyplot as plt
 import pyrealsense2 as pyrs
-print 'Starting...'
+print ('Starting...')
 # pyrs.start()
 pyrs.start( c_height=1080, c_width=1920, c_fps=30, d_height=480, d_width=640, d_fps=30)
-print 'Sleeping 2...'
+print ('Sleeping 2...')
 time.sleep(2)
 
 # cm = pyrs.get_colour()
 # plt.imshow(cm)
 # plt.show()
 
-print "Depth scale = %25.22f" % pyrs.get_depth_scale()
+print ("Depth scale = %25.22f" % pyrs.get_depth_scale())
 
 import cv2
 import numpy as np
@@ -31,7 +31,7 @@ first = time.time()
 smoothing = 0.9;
 fps_smooth = 30
 
-print "Capturing 30 sets of images..."
+print ("Capturing 30 sets of images...")
 setSize = 3
 while cnt < 30:
 
@@ -65,7 +65,7 @@ while cnt < 30:
 # min, max
 # print "IR min %d, max %d" % ( irmap.min(), float( irmap.max()))
 # save the last image set
-print "Saving last set of captured images..."
+print ("Saving last set of captured images...")
 cv2.imwrite( 'r.jpg', c)
 cv2.imwrite( 'd.jpg', d)
 #cv2.imwrite( 'irmap.png', irmap)

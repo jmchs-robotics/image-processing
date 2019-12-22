@@ -71,10 +71,10 @@ for a in sys.argv:
     i += 1
 
 if len( inFileName) > 0:
-    print "Processing input file %s" % ( inFileName)
+    print ("Processing input file %s" % ( inFileName) )
     framesToGrab = 1
 else:
-    print "Using RealSense camera for input"
+    print ("Using RealSense camera for input")
 
 if( framesToGrab < 1):
     framesToGrab = 1
@@ -149,26 +149,26 @@ closestCanDepth = 1783
 farthestCanDepth = 6705
 
 
-print 'Starting...'
+print ('Starting...')
 
 #
 # start the RealSense camera or read the input file
 #
 if pyrs:
-    print 'Setting up RealSense device...'
+    print ('Setting up RealSense device...')
     # pyrs.start() # sets everything to 640x480 and 60 fps
     pyrs.start( c_height=1080, c_width=1920, c_fps=30, d_height=480, d_width=640, d_fps=30)
-    print "\nSleeping 2..."
+    print ("\nSleeping 2...")
     time.sleep(2)
 elif( useAxisCam == True):
-    print "Using Axis Camera..."
+    print ("Using Axis Camera...")
     vc = cv2.VideoCapture()
-    print vc.open("http:axis-00408ca7a2f0.local/mjpg/video.mjpg") # 'http://192.168.1.26/mjpg/video.mjpg')
+    print (vc.open("http:axis-00408ca7a2f0.local/mjpg/video.mjpg")) # 'http://192.168.1.26/mjpg/video.mjpg')
 else:
     imgIn = cv2.imread( inFileName) # read the input image from a file
     
 if( len( inDepthFileName) > 0): # read the input depth map from a file
-    print "Processing depth file %s" % ( inDepthFileName)
+    print ("Processing depth file %s" % ( inDepthFileName))
     dImgIn = cv2.imread( inDepthFileName) # RealSense vals are 8 times those in the saved image
 # dImgIn = dImgIn[0] # reduce the input depth map file.jpg to one plane
 else:
@@ -181,9 +181,9 @@ print( "Writing UDP to %s:%s" % ( ip, port))
 
 
 if frameCounterInc == 1:
-    print "Processing %d frames..." % ( framesToGrab)
+    print ("Processing %d frames..." % ( framesToGrab))
 else:
-    print "Processing infinite loop..."
+    print ("Processing infinite loop...")
 
 
 # number of pixels 'close enought' to on target
@@ -233,12 +233,12 @@ while( i < framesToGrab):
 #  Maybe go one better and pick correct size from each of the threshold ranges: 6.5-10; 11.5-15; 16.5-20
 # pass the identified box as ROI for color image processing
 
-    print dImgIn.dtype
-    print dImgIn[240]
+    print (dImgIn.dtype)
+    print (dImgIn[240])
 
 
     dd = dImgIn / 256.0
-    print np.amax( dd)
+    print (np.amax( dd))
     cv2.imwrite( "depthTmp.jpg", dd.astype( np.uint8))
     quit(0)
 
@@ -259,7 +259,7 @@ while( i < framesToGrab):
 
     # find contours in the thresholded depth map
     dCont, hierarchy = cv2.findContours(  dThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    print len(dCont)
+    print (len(dCont))
     # find largest contour, by area
     c = max( dCont, key = cv2.contourArea)
     # find bounding straight rectangle
@@ -291,7 +291,7 @@ while( i < framesToGrab):
         
     # print to console
     if( printToConsole):
-        print outString
+        print (outString)
 
     # write to UDP
     s.sendto( outString, ( ip, port))
@@ -325,7 +325,7 @@ while( i < framesToGrab):
             r = cv2.minAreaRect(c)
             if( r != None):
                 if((  r[1][1] > 100 ) and ( r[1][0] * 1000 > r[1][1]) and ( r[1][0] * 10) < r[1][1] and (r[2] > -5) and ( r[2] < 5)):
-                    print r
+                    print (r)
                     break
 
         # find largest contour, by area
@@ -388,17 +388,17 @@ while( i < framesToGrab):
         else:
             calculatedDistance = 835682.3 / r[1][1]
         outString = "{: 8.2f}, {: 8.2f}, {: 8.2f}, {: 8.2f}mm, {:s}".format( ctr2targetLR, ctr2targetUD, -2.0, calculatedDistance, 'C')
-        print sys.exc_info()[0]
+        print (sys.exc_info()[0])
 
-    if printToConsole: print outString
+    if printToConsole: print (outString)
 
     # write tracking instructions to socket
     s.sendto( outString, ( ip, port))
 
 
-print "Done. Processing rate was: %d fps" % ( framesToGrab / (time.time() - startTime))
+print ("Done. Processing rate was: %d fps" % ( framesToGrab / (time.time() - startTime)))
 if( writeSnapshotFiles):
-    print "Saving last set of captured images..."
+    print ("Saving last set of captured images...")
     cv2.imwrite( 'colorWithTargets.jpg', img)
     cv2.imwrite( 'colorMasked.jpg', mask)
     cv2.imwrite( 'depthWithROI.jpg', dImgIn)
