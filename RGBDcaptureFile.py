@@ -8,7 +8,7 @@
 
 import time
 # import matplotlib.pyplot as plt
-import pyrealsense as pyrs
+import pyrealsense2 as pyrs
 print 'Starting...'
 # pyrs.start()
 pyrs.start( c_height=1080, c_width=1920, c_fps=30, d_height=480, d_width=640, d_fps=30)

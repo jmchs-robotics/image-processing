@@ -76,11 +76,11 @@ if( framesToGrab < 1):
     framesToGrab = 1
     frameCounterInc = 0
 
-# import pyrealsense if not processing a file
+# import pyrealsense2 if not processing a file
 pyrs = None
 if( len( inFileName) == 0 and useAxisCam == False):
     try:
-        import pyrealsense as pyrs
+        import pyrealsense2 as pyrs
     except:
         pyrs = None
 
